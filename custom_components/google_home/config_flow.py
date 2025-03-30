@@ -19,7 +19,6 @@ from .const import (
     CONF_MASTER_TOKEN,
     CONF_PASSWORD,
     CONF_UPDATE_INTERVAL,
-    CONF_MANUAL_DEVICES,
     CONF_USERNAME,
     DATA_COORDINATOR,
     DOMAIN,
@@ -166,20 +165,6 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
     ) -> ConfigFlowResult:
         """Manage the options."""
         if user_input is not None:
-             # Parse manual_devices from JSON string
-            manual_devices_str = user_input.get(CONF_MANUAL_DEVICES, "{}")
-            try:
-                user_input[CONF_MANUAL_DEVICES] = (
-                    eval(manual_devices_str) if manual_devices_str else {}
-                )
-                if not isinstance(user_input[CONF_MANUAL_DEVICES], dict):
-                    raise ValueError
-            except (SyntaxError, ValueError):
-                return self.async_show_form(
-                    step_id="init",
-                    data_schema=self._build_schema(),
-                    errors={"base": "invalid_manual_devices"},
-                )
             self.options.update(user_input)
             coordinator = self.hass.data[DOMAIN][self.config_entry.entry_id][
                 DATA_COORDINATOR
@@ -203,12 +188,6 @@ class GoogleHomeOptionsFlowHandler(OptionsFlow):
                             CONF_UPDATE_INTERVAL, UPDATE_INTERVAL
                         ),
                     ): int,
-                    vol.Optional(
-                        CONF_MANUAL_DEVICES,
-                        default=str(
-                            self.config_entry.options.get(CONF_MANUAL_DEVICES, {})
-                        ),
-                    ): str,  # Accept manual_devices as a JSON string
                 }
             ),
         )

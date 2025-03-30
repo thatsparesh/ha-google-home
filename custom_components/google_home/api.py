@@ -52,7 +52,6 @@ class GlocaltokensApiClient:
         master_token: str | None = None,
         android_id: str | None = None,
         zeroconf_instance: Zeroconf | None = None,
-        manual_devices: dict[str, str] | None = None,
     ):
         """Sample API Client."""
         self.hass = hass
@@ -70,7 +69,6 @@ class GlocaltokensApiClient:
         )
         self.google_devices: list[GoogleHomeDevice] = []
         self.zeroconf_instance = zeroconf_instance
-        self.manual_devices = manual_devices or {}
 
     async def async_get_master_token(self) -> str:
         """Get master API token."""
@@ -109,12 +107,6 @@ class GlocaltokensApiClient:
                 )
 
             google_devices = await self.hass.async_add_executor_job(_get_google_devices)  # type: ignore[arg-type]
-            
-            for device in google_devices:
-                # Check if the device's IP address is not known and has a mapping in manual_devices
-                if not device.ip_address and device.device_name in self.manual_devices:
-                    device.ip_address = self.manual_devices[device.device_name]
-                    
             self.google_devices = [
                 GoogleHomeDevice(
                     device_id=device.device_id,

@@ -6,8 +6,6 @@ https://github.com/leikoilja/ha-google-home
 
 from datetime import timedelta
 import logging
-import json  # Import the JSON module for safer parsing
-
 from typing import TYPE_CHECKING, cast
 
 from homeassistant.components import zeroconf
@@ -21,7 +19,6 @@ from .const import (
     CONF_ANDROID_ID,
     CONF_MASTER_TOKEN,
     CONF_UPDATE_INTERVAL,
-    CONF_MANUAL_DEVICES,
     DATA_CLIENT,
     DATA_COORDINATOR,
     DOMAIN,
@@ -51,22 +48,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: GoogleHomeConfigEntry) -
     update_interval = cast(
         int, entry.options.get(CONF_UPDATE_INTERVAL, UPDATE_INTERVAL)
     )
-    # Parse manual_devices
-    manual_devices_raw = entry.options.get(CONF_MANUAL_DEVICES, {})
-    if isinstance(manual_devices_raw, dict):
-        manual_devices = manual_devices_raw
-    elif isinstance(manual_devices_raw, str):
-        try:
-            manual_devices = json.loads(manual_devices_raw)
-            if not isinstance(manual_devices, dict):
-                raise ValueError("manual_devices is not a dictionary")
-        except (json.JSONDecodeError, ValueError) as error:
-            _LOGGER.error("Invalid manual_devices configuration: %s", error)
-            manual_devices = {}
-    else:
-        _LOGGER.error("Invalid manual_devices type: %s", type(manual_devices_raw))
-        manual_devices = {}
-    _LOGGER.debug("Manual devices: %s", manual_devices)
 
     _LOGGER.debug(
         "Coordinator update interval is: %s", timedelta(seconds=update_interval)
@@ -83,7 +64,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: GoogleHomeConfigEntry) -
         master_token=master_token,
         android_id=android_id,
         zeroconf_instance=zeroconf_instance,
-        manual_devices=manual_devices,
     )
 
     coordinator = DataUpdateCoordinator(
