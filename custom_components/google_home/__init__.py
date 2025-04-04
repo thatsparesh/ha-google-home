@@ -48,7 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GoogleHomeConfigEntry) -
     update_interval = cast(
         int, entry.options.get(CONF_UPDATE_INTERVAL, UPDATE_INTERVAL)
     )
-
+    _LOGGER.debug("Persistent configuration: %s", entry.options)
     _LOGGER.debug(
         "Coordinator update interval is: %s", timedelta(seconds=update_interval)
     )
@@ -58,6 +58,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GoogleHomeConfigEntry) -
     zeroconf_instance = await zeroconf.async_get_instance(hass)
     glocaltokens_client = GlocaltokensApiClient(
         hass=hass,
+        entry_id=entry.entry_id,
         session=session,
         username=username,
         password=password,
@@ -65,7 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GoogleHomeConfigEntry) -
         android_id=android_id,
         zeroconf_instance=zeroconf_instance,
     )
-
+        
     coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
@@ -74,8 +75,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: GoogleHomeConfigEntry) -
         update_interval=timedelta(seconds=update_interval),
     )
 
-    await coordinator.async_config_entry_first_refresh()
+    # Register the coordinator's async_refresh method as a callback
+    glocaltokens_client.register_device_update_callback(coordinator.async_request_refresh)
 
+    await coordinator.async_config_entry_first_refresh()
+        
     hass.data[DOMAIN][entry.entry_id] = {
         DATA_CLIENT: glocaltokens_client,
         DATA_COORDINATOR: coordinator,
@@ -107,3 +111,4 @@ async def async_update_entry(hass: HomeAssistant, entry: GoogleHomeConfigEntry) 
     _LOGGER.debug(
         "Coordinator update interval is: %s", timedelta(seconds=update_interval)
     )
+    

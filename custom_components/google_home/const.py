@@ -37,7 +37,8 @@ ICON_ALARM_VOLUME_OFF: Final = "mdi:volume-off"
 SENSOR: Final = "sensor"
 SWITCH: Final = "switch"
 NUMBER: Final = "number"
-PLATFORMS: Final = [SENSOR, SWITCH, NUMBER]
+TEXT: Final = "text"
+PLATFORMS: Final = [SENSOR, SWITCH, NUMBER, TEXT]
 
 # Services
 SERVICE_REBOOT: Final = "reboot_device"
@@ -53,6 +54,8 @@ CONF_ANDROID_ID: Final = "android_id"
 CONF_USERNAME: Final = "username"
 CONF_PASSWORD: Final = "password"
 CONF_MASTER_TOKEN: Final = "master_token"
+CONF_DEVICES: Final = "devices"
+CONF_IP_ADDRESS: Final = "ip_address"
 
 # Defaults
 DEFAULT_NAME: Final = "Google Home"

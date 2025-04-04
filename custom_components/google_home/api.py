@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 from http import HTTPStatus
 import ipaddress
 import logging
@@ -19,6 +20,8 @@ from .const import (
     API_ENDPOINT_ALARMS,
     API_ENDPOINT_DO_NOT_DISTURB,
     API_ENDPOINT_REBOOT,
+    CONF_DEVICES,
+    CONF_IP_ADDRESS,
     HEADER_CAST_LOCAL_AUTH,
     HEADER_CONTENT_TYPE,
     JSON_ALARM,
@@ -30,7 +33,7 @@ from .const import (
 )
 from .exceptions import InvalidMasterToken
 from .models import GoogleHomeDevice
-from .types import AlarmJsonDict, JsonDict, TimerJsonDict
+from .types import AlarmJsonDict, GoogleHomeConfigEntry, JsonDict, TimerJsonDict
 
 if TYPE_CHECKING:
     from zeroconf import Zeroconf
@@ -46,6 +49,7 @@ class GlocaltokensApiClient:
     def __init__(
         self,
         hass: HomeAssistant,
+        entry_id: str,
         session: ClientSession,
         username: str | None = None,
         password: str | None = None,
@@ -55,6 +59,7 @@ class GlocaltokensApiClient:
     ):
         """Sample API Client."""
         self.hass = hass
+        self.entry_id = entry_id
         self._username = username
         self._password = password
         self._session = session
@@ -69,6 +74,8 @@ class GlocaltokensApiClient:
         )
         self.google_devices: list[GoogleHomeDevice] = []
         self.zeroconf_instance = zeroconf_instance
+        self._device_update_callbacks: list[callable] = []  # List of callbacks
+
 
     async def async_get_master_token(self) -> str:
         """Get master API token."""
@@ -107,6 +114,23 @@ class GlocaltokensApiClient:
                 )
 
             google_devices = await self.hass.async_add_executor_job(_get_google_devices)  # type: ignore[arg-type]
+            
+            entry: GoogleHomeConfigEntry = self.hass.config_entries.async_get_entry(self.entry_id)
+            devices_conf: dict[str, dict] = entry.options.get(CONF_DEVICES, {})
+            for device in google_devices:
+                # Check if the device's IP address is not known and has a mapping in CONF_DEVICES
+                if device.ip_address:
+                    continue
+                if device.device_id not in devices_conf:
+                    continue
+                
+                device.ip_address = devices_conf[device.device_id].get(CONF_IP_ADDRESS)
+                _LOGGER.info(
+                    "Updating IP address for device %s from persistent configuration: %s",
+                    device.device_name,
+                    device.ip_address,
+                )
+     
             self.google_devices = [
                 GoogleHomeDevice(
                     device_id=device.device_id,
@@ -133,8 +157,12 @@ class GlocaltokensApiClient:
 
         Note: port argument is unused because all request must be done to 8443.
         """
-        if isinstance(ipaddress.ip_address(ip_address), ipaddress.IPv6Address):
-            ip_address = f"[{ip_address}]"
+        try:
+            if isinstance(ipaddress.ip_address(ip_address), ipaddress.IPv6Address):
+                ip_address = f"[{ip_address}]"
+        except ValueError:
+            # If it's not a valid IP address, assume it's a hostname
+            _LOGGER.debug("Assuming '%s' is a hostname", ip_address)
         return f"https://{ip_address}:{port}/{api_endpoint}"
 
     async def update_google_devices_information(self) -> list[GoogleHomeDevice]:
@@ -160,7 +188,7 @@ class GlocaltokensApiClient:
             *[
                 self.collect_data_from_endpoints(device)
                 for device in devices
-                if device.ip_address and device.auth_token
+                if device.auth_token
             ]
         )
 
@@ -390,6 +418,54 @@ class GlocaltokensApiClient:
 
         return device
 
+    async def update_device_ip_address(self, device: GoogleHomeDevice, new_ip: str) -> bool:
+        """Update the IP address of a Google Home device."""
+
+        # Update the IP address
+        old_ip = device.ip_address
+        device.ip_address = new_ip
+        device.available = True  # Reset availability to True after IP address change
+
+        _LOGGER.info(
+            "Updating IP address for device %s: %s -> %s",
+            device.name,
+            old_ip,
+            new_ip,
+        )
+
+        # Persist the IP address change in ConfigEntry options
+        entry: GoogleHomeConfigEntry = self.hass.config_entries.async_get_entry(self.entry_id)
+        options: dict[str, dict] = copy.deepcopy(dict(entry.options)) # make a deep copy to ensure update_entry recognizes the change
+        options.setdefault(CONF_DEVICES, {}).setdefault(device.device_id, {})[CONF_IP_ADDRESS] = new_ip
+        _LOGGER.debug(
+            "Comparing old options: %s with new options: %s. Same = %s", 
+            entry.options, 
+            options,
+            entry.options == options,
+        )
+        self.hass.config_entries.async_update_entry(entry, options=options)
+        
+        _LOGGER.debug(
+            "Updated persistent configuration for device %s. '%s' options:%s",
+            device.name,
+            entry.entry_id,
+            options,
+        )
+        
+        # Publish the change (e.g., trigger an event or notify Home Assistant)
+        await self.notify_device_updated(device)
+
+        return True
+    
+    def register_device_update_callback(self, callback: callable) -> None:
+        """Register a callback to be called when a device is updated."""
+        self._device_update_callbacks.append(callback)
+
+    async def notify_device_updated(self, device: GoogleHomeDevice) -> None:
+        """Notify all registered callbacks about a device update."""
+        for callback in self._device_update_callbacks:
+            await callback()
+            
     async def request(
         self,
         method: Literal["GET", "POST"],
