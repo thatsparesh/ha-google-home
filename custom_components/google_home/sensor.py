@@ -70,7 +70,7 @@ async def async_setup_entry(
                 device.hardware,
             )
         )
-        if device.auth_token and device.available:
+        if device.auth_token:
             sensors += [
                 GoogleHomeAlarmsSensor(
                     coordinator,

@@ -63,6 +63,12 @@ class GoogleHomeBaseEntity(
             "manufacturer": MANUFACTURER,
             "model": self.device_model,
         }
+        
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        """Return whether the entity should be enabled by default."""
+        device = self.get_device()
+        return device.available if device else False
 
     def get_device(self) -> GoogleHomeDevice | None:
         """Return the device matched by device name from the list of google devices in coordinator_data."""

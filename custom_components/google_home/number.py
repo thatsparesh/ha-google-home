@@ -50,7 +50,7 @@ async def async_setup_entry(
             coordinator, client, device.device_id, device.name, device.hardware
         )
         for device in coordinator.data
-        if device.auth_token and device.available
+        if device.auth_token
     ]
 
     if numbers:

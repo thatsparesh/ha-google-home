@@ -44,7 +44,7 @@ async def async_setup_entry(
             device.hardware,
         )
         for device in coordinator.data
-        if device.auth_token and device.available
+        if device.auth_token
     ]
 
     if switches:

@@ -102,6 +102,10 @@ class GoogleHomeIpAddressTextEntity(GoogleHomeBaseEntity, TextEntity):
             "device_name": self.device_name,
             "editable": "true",
         }
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        """Return whether the entity should be enabled by default."""
+        return True
 
     def _get_ip_address(self) -> str:
         """Retrieve the current IP address from the device."""
