@@ -47,7 +47,7 @@ class GoogleHomeBaseEntity(
     @property
     def name(self) -> str:  # type: ignore[override]
         """Return the name of the sensor."""
-        return f"{self.device_name} {self.label}"
+        return f"{self.label}"
 
     @property
     def unique_id(self) -> str:  # type: ignore[override]
